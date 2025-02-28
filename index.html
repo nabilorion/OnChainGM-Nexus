@@ -177,9 +177,10 @@
     let walletSigner = null;
     let gmContract = null;
     let gmCount = 0;
+    let isWalletConnected = false; // Track if wallet is already connected
     
     // Fixed contract address (hardcoded)
-    const contractAddress = '0x0914A63c4e1000C0D1982706E53F622d2394fAde';  // Replace with actual contract address
+    const contractAddress = '0x0914A63c4e1000C0D1982706E53F622d2394fAde';  // Updated contract address
     
     // Nexus Chain configuration
     const nexusChain = {
@@ -293,6 +294,11 @@
     // Connect wallet
     async function connectWallet() {
       try {
+        // If wallet is already connected, do nothing
+        if (isWalletConnected) {
+          return;
+        }
+        
         // Check if MetaMask is installed
         if (!window.ethereum) {
           showStatus("Please install MetaMask to connect your wallet");
@@ -336,6 +342,9 @@
           // Automatically reload the page to reconnect to the new chain
           window.location.reload();
         });
+        
+        // Set wallet as connected
+        isWalletConnected = true;
         
       } catch (error) {
         console.error("Error connecting wallet:", error);
