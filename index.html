@@ -179,7 +179,7 @@
     let gmCount = 0;
     
     // Fixed contract address (hardcoded)
-    const contractAddress = '0x6e3F68A4790F6A4d3437624920F1579b155ad453';  // Replace with actual contract address
+    const contractAddress = '0x0914A63c4e1000C0D1982706E53F622d2394fAde';  // Replace with actual contract address
     
     // Nexus Chain configuration
     const nexusChain = {
@@ -279,6 +279,9 @@
         // Get current GM count
         refreshGmCount();
         
+        // Fetch past GM events when initializing
+        fetchPastGmEvents();
+        
         // Listen for GM events (Only once)
         setupEventListener();
       } catch (error) {
@@ -354,6 +357,31 @@
       }
     }
     
+    // Fetch past GM events (in case they were missed)
+    async function fetchPastGmEvents() {
+      try {
+        if (gmContract) {
+          const fromBlock = 0; // Start from the first block, or use a specific block number
+          const toBlock = 'latest'; // Get up to the latest block
+          
+          // Query past GM events
+          const events = await gmContract.queryFilter(gmContract.filters.GmSaid(), fromBlock, toBlock);
+          
+          // Add each event to the list
+          events.forEach(event => {
+            const sender = event.args.sender;
+            const timestamp = event.args.timestamp;
+            addGmToList(sender, new Date(timestamp * 1000));
+          });
+          
+          // Update GM count after fetching past events
+          await refreshGmCount();
+        }
+      } catch (error) {
+        console.error("Error fetching past GM events:", error);
+      }
+    }
+    
     // Setup event listener for GM events (Ensure it's set only once)
     let gmListenerSet = false;
     function setupEventListener() {
@@ -363,14 +391,16 @@
           const filter = gmContract.filters.GmSaid();
           
           gmContract.on(filter, async (sender, timestamp, event) => {
-            console.log("New GM event:", sender, timestamp, event);
+            console.log("New GM event detected:", sender, timestamp, event);
+            
+            // Add GM to the list
             addGmToList(sender, new Date(timestamp * 1000));
             
             // Update GM count after new GM is detected
             await refreshGmCount();
           });
           
-          showStatus("Listening for GM events");
+          showStatus("Listening for GM events...");
           gmListenerSet = true; // Ensure it's set only once
         } catch (error) {
           console.error("Error setting up event listener:", error);
