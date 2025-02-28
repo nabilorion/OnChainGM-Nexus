@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus GM</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: white;
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      max-width: 600px;
+      padding: 20px;
+    }
+    
+    .title {
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+    
+    .counter {
+      font-size: 80px;
+      margin: 30px 0;
+    }
+    
+    .button {
+      background-color: black;
+      color: white;
+      border: none;
+      border-radius: 9999px;
+      padding: 10px 24px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      margin: 10px 0;
+      min-width: 200px;
+    }
+    
+    .button:hover {
+      opacity: 0.9;
+    }
+    
+    .button:disabled {
+      background-color: #555;
+      cursor: not-allowed;
+    }
+    
+    .wallet-info {
+      margin: 20px 0;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border-radius: 10px;
+      width: 100%;
+      word-break: break-all;
+      font-size: 14px;
+    }
+    
+    .status-message {
+      margin-top: 20px;
+      color: #555;
+    }
+    
+    .gm-list {
+      margin-top: 20px;
+      text-align: left;
+      width: 100%;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #eee;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    
+    .gm-item {
+      margin: 5px 0;
+      padding: 5px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+    
+    .config-section {
+      margin: 20px 0;
+      width: 100%;
+      text-align: left;
+    }
+    
+    .config-section input {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    
+    .config-section label {
+      font-weight: bold;
+    }
+    
+    .network-info {
+      font-size: 14px;
+      margin-top: 10px;
+      background-color: #f5f5f5;
+      padding: 5px 10px;
+      border-radius: 5px;
+    }
+    
+    .chain-info {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #edf7ff;
+      border-radius: 5px;
+      text-align: left;
+      font-size: 14px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="title">Nexus GM</div>
+    <div id="counter" class="counter">0</div>
+    
+
+    
+    <div class="chain-info">
+      <div><strong>Network:</strong> Nexus Chain (Chain ID: 393)</div>
+      <div><strong>Currency:</strong> NEX</div>
+      <div><strong>RPC URL:</strong> https://rpc.nexus.xyz/http</div>
+    </div>
+    
+    <button id="connect-wallet" class="button">Connect Wallet</button>
+    <button id="switch-network" class="button" style="display: none;">Switch to Nexus Chain</button>
+    <button id="send-gm" class="button" disabled>Send GM</button>
+    
+    <div id="wallet-info" class="wallet-info" style="display: none;">
+      <div>Connected Address: <span id="wallet-address">Not connected</span></div>
+      <div id="network-info" class="network-info"></div>
+    </div>
+    
+    <div id="status-message" class="status-message"></div>
+    
+    <div id="gm-list" class="gm-list" style="display: none;">
+      <h3>Recent GMs</h3>
+      <div id="gm-items"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+  <script>
+    // Get elements
+    const counterElement = document.getElementById('counter');
+    const connectWalletButton = document.getElementById('connect-wallet');
+    const switchNetworkButton = document.getElementById('switch-network');
+    const sendGmButton = document.getElementById('send-gm');
+    const walletInfoDiv = document.getElementById('wallet-info');
+    const walletAddressSpan = document.getElementById('wallet-address');
+    const networkInfoDiv = document.getElementById('network-info');
+    const statusMessageDiv = document.getElementById('status-message');
+    const gmListDiv = document.getElementById('gm-list');
+    const gmItemsDiv = document.getElementById('gm-items');
+    
+    // Initialize variables
+    let walletProvider = null;
+    let walletSigner = null;
+    let gmContract = null;
+    let gmCount = 0;
+    
+    // Fixed contract address (hardcoded)
+    const contractAddress = '0x6e3F68A4790F6A4d3437624920F1579b155ad453';  // Replace with actual contract address
+    
+    // Nexus Chain configuration
+    const nexusChain = {
+      chainId: '0x189', // 393 in hex
+      chainName: 'Nexus Chain',
+      nativeCurrency: {
+        name: 'Nexus Token',
+        symbol: 'NEX',
+        decimals: 18
+      },
+      rpcUrls: ['https://rpc.nexus.xyz/http'],
+      blockExplorerUrls: ['https://explorer.nexus.xyz']
+    };
+    
+    // GM Contract ABI
+    const contractABI = [
+      "function sayGm() public",
+      "function gmCount() public view returns (uint256)",
+      "event GmSaid(address indexed sender, uint256 timestamp)"
+    ];
+    
+    // Update the counter display
+    function updateCounter(count) {
+      counterElement.textContent = count;
+    }
+    
+    // Show status message
+    function showStatus(message) {
+      statusMessageDiv.textContent = message;
+    }
+    
+    // Check if the current network is Nexus Chain
+    async function checkNetwork() {
+      try {
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        return chainId === nexusChain.chainId;
+      } catch (error) {
+        console.error("Error checking network:", error);
+        return false;
+      }
+    }
+    
+    // Switch to Nexus Chain
+    async function switchToNexusChain() {
+      try {
+        showStatus("Switching to Nexus Chain...");
+        
+        // Try to switch to the Nexus Chain
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: nexusChain.chainId }],
+          });
+        } catch (switchError) {
+          // If the chain is not added to MetaMask, add it
+          if (switchError.code === 4902) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [nexusChain],
+            });
+          } else {
+            throw switchError;
+          }
+        }
+        
+        // Check if we're now on Nexus Chain
+        const isNexusChain = await checkNetwork();
+        if (isNexusChain) {
+          showStatus("Successfully connected to Nexus Chain");
+          switchNetworkButton.style.display = "none";
+          initializeAfterNetworkSwitch();
+        } else {
+          showStatus("Failed to switch to Nexus Chain");
+        }
+      } catch (error) {
+        console.error("Error switching network:", error);
+        showStatus("Failed to switch network: " + error.message);
+      }
+    }
+    
+    // Initialize after network switch
+    async function initializeAfterNetworkSwitch() {
+      try {
+        // Reinitialize provider and signer
+        walletProvider = new ethers.providers.Web3Provider(window.ethereum);
+        walletSigner = walletProvider.getSigner();
+        
+        // Initialize contract with hardcoded contract address
+        gmContract = new ethers.Contract(contractAddress, contractABI, walletSigner);
+        
+        // Enable GM button
+        sendGmButton.disabled = false;
+        
+        // Show GM list
+        gmListDiv.style.display = "block";
+        
+        // Get current GM count
+        refreshGmCount();
+        
+        // Listen for GM events (Only once)
+        setupEventListener();
+      } catch (error) {
+        console.error("Error initializing after network switch:", error);
+        showStatus("Error: " + error.message);
+      }
+    }
+    
+    // Connect wallet
+    async function connectWallet() {
+      try {
+        // Check if MetaMask is installed
+        if (!window.ethereum) {
+          showStatus("Please install MetaMask to connect your wallet");
+          return;
+        }
+        
+        // Request account access
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        const signer = provider.getSigner();
+        const address = await signer.getAddress();
+        
+        // Save provider and signer
+        walletProvider = provider;
+        walletSigner = signer;
+        
+        // Update UI with address
+        walletAddressSpan.textContent = address;
+        walletInfoDiv.style.display = "block";
+        connectWalletButton.textContent = "Wallet Connected";
+        
+        // Check if we're on Nexus Chain
+        const isNexusChain = await checkNetwork();
+        if (isNexusChain) {
+          networkInfoDiv.textContent = "Connected to Nexus Chain";
+          showStatus("Wallet connected to Nexus Chain.");
+          initializeAfterNetworkSwitch();
+        } else {
+          networkInfoDiv.textContent = "Not connected to Nexus Chain";
+          showStatus("Please switch to Nexus Chain");
+          switchNetworkButton.style.display = "block";
+        }
+        
+        // Listen for account changes
+        window.ethereum.on('accountsChanged', function (accounts) {
+          connectWallet();
+        });
+        
+        // Listen for chain changes
+        window.ethereum.on('chainChanged', function(chainId) {
+          window.location.reload();
+        });
+        
+      } catch (error) {
+        console.error("Error connecting wallet:", error);
+        showStatus("Failed to connect wallet: " + error.message);
+      }
+    }
+    
+    // Refresh GM count
+    async function refreshGmCount() {
+      try {
+        if (gmContract) {
+          const count = await gmContract.gmCount();
+          gmCount = parseInt(count.toString());
+          updateCounter(gmCount);
+        }
+      } catch (error) {
+        console.error("Error getting GM count:", error);
+        showStatus("Error getting GM count: " + error.message);
+      }
+    }
+    
+    // Setup event listener for GM events (Ensure it's set only once)
+    let gmListenerSet = false;
+    function setupEventListener() {
+      if (!gmListenerSet) {
+        try {
+          // Look for GmSaid events
+          const filter = gmContract.filters.GmSaid();
+          
+          gmContract.on(filter, async (sender, timestamp, event) => {
+            console.log("New GM event:", sender, timestamp, event);
+            addGmToList(sender, new Date(timestamp * 1000));
+            
+            // Update GM count after new GM is detected
+            await refreshGmCount();
+          });
+          
+          showStatus("Listening for GM events");
+          gmListenerSet = true; // Ensure it's set only once
+        } catch (error) {
+          console.error("Error setting up event listener:", error);
+        }
+      }
+    }
+    
+    // Send GM
+    async function sendGm() {
+      try {
+        // Check if we're on Nexus Chain
+        const isNexusChain = await checkNetwork();
+        if (!isNexusChain) {
+          showStatus("Please switch to Nexus Chain first");
+          switchNetworkButton.style.display = "block";
+          return;
+        }
+        
+        // Initialize contract if not already done
+        if (!gmContract) {
+          gmContract = new ethers.Contract(contractAddress, contractABI, walletSigner);
+        }
+        
+        showStatus("Sending GM to the blockchain...");
+        sendGmButton.disabled = true;
+        
+        // Call the sayGm function on the contract
+        const tx = await gmContract.sayGm();
+        showStatus("Transaction submitted. Waiting for confirmation...");
+        
+        // Wait for the transaction to be mined
+        await tx.wait();
+        
+        // Update counter after transaction is mined
+        await refreshGmCount();
+        
+        showStatus("GM sent successfully!");
+        sendGmButton.disabled = false;
+        
+        // Show GM list if not already visible
+        gmListDiv.style.display = "block";
+        
+        // Set up event listener if not already done
+        setupEventListener();
+        
+      } catch (error) {
+        console.error("Error sending GM:", error);
+        showStatus("Failed to send GM: " + error.message);
+        sendGmButton.disabled = false;
+      }
+    }
+    
+    // Add GM to the list
+    function addGmToList(address, timestamp) {
+      const truncatedAddress = address.slice(0, 6) + '...' + address.slice(-4);
+      const listItem = document.createElement('div');
+      listItem.className = 'gm-item';
+      listItem.textContent = `${truncatedAddress} sent GM at ${timestamp.toLocaleString()}`;
+      gmItemsDiv.appendChild(listItem);
+    }
+  
+    // Event listeners for buttons
+    connectWalletButton.addEventListener('click', connectWallet);
+    switchNetworkButton.addEventListener('click', switchToNexusChain);
+    sendGmButton.addEventListener('click', sendGm);
+  </script>
+</body>
+</html>
