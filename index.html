@@ -330,6 +330,7 @@
         
         // Listen for chain changes
         window.ethereum.on('chainChanged', function(chainId) {
+          // Automatically reload the page to reconnect to the new chain
           window.location.reload();
         });
         
@@ -435,6 +436,11 @@
     connectWalletButton.addEventListener('click', connectWallet);
     switchNetworkButton.addEventListener('click', switchToNexusChain);
     sendGmButton.addEventListener('click', sendGm);
+  
+    // Reload page if chain changes (reinitialize the state)
+    window.ethereum.on('chainChanged', () => {
+      window.location.reload();
+    });
   </script>
 </body>
 </html>
